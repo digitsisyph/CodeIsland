@@ -119,7 +119,9 @@ struct AccountQuotaView: View {
             Text(account.organization.isEmpty ? "Personal" : account.organization)
                 .font(.caption).foregroundStyle(.secondary)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), alignment: .leading)], alignment: .leading, spacing: 12) {
-                ForEach(account.windows) { window in
+                ForEach(account.windows.filter {
+                    account.provider != "codex" || !$0.label.localizedCaseInsensitiveContains("spark")
+                }) { window in
                     quotaRing(window)
                 }
             }
