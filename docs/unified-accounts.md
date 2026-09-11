@@ -43,6 +43,8 @@ and refreshes once a minute while open. The source build uses this
 checkout's virtual environment. The CLI and island display the same remaining
 percentages, exact reset timestamps, scoped model windows, Codex reset-credit
 counts and earliest expiry, active account, and last measurement time.
+The island also shows the time remaining beside each reset timestamp, updating
+every minute. Once that time passes it shows that a fresh measurement is needed.
 
 Missing values stay unknown. Old values are marked stale after a failed refresh;
 identity/credential errors suppress old quota bars. Reading quotas never redeems

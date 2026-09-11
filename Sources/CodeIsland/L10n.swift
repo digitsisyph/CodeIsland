@@ -47,6 +47,11 @@ final class L10n: ObservableObject {
         "quota_tab": "Quota",
         "quota_refresh": "Refresh",
         "quota_left": "left",
+        "quota_countdown_days": "%dd %dh left",
+        "quota_countdown_hours": "%dh %dm left",
+        "quota_countdown_minutes": "%dm left",
+        "quota_reset_soon": "<1m left",
+        "quota_reset_due": "Due · awaiting refresh",
         "quota_footer": "Remaining quota · resets in local time · refreshes every minute",
         // Settings pages
         "general": "General",
@@ -753,6 +758,11 @@ final class L10n: ObservableObject {
         "quota_tab": "额度",
         "quota_refresh": "刷新",
         "quota_left": "剩余",
+        "quota_countdown_days": "剩余 %d 天 %d 小时",
+        "quota_countdown_hours": "剩余 %d 小时 %d 分钟",
+        "quota_countdown_minutes": "剩余 %d 分钟",
+        "quota_reset_soon": "剩余不到 1 分钟",
+        "quota_reset_due": "已到重置时间 · 待刷新",
         "quota_footer": "剩余额度 · 本地时区重置时间 · 每分钟刷新",
         // Settings pages
         "general": "通用",

@@ -79,14 +79,16 @@ struct AccountQuotaView: View {
                         .font(.system(.body, design: .monospaced))
                         .textSelection(.enabled)
                 }
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 16) {
-                        ForEach(snapshot.accounts) { account in
-                            accountRow(account)
-                            Divider()
-                        }
-                        ForEach(Array(snapshot.errors.enumerated()), id: \.offset) { _, error in
-                            Text("\(error.provider): \(error.message)").foregroundStyle(.orange)
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 16) {
+                            ForEach(snapshot.accounts) { account in
+                                accountRow(account, now: context.date)
+                                Divider()
+                            }
+                            ForEach(Array(snapshot.errors.enumerated()), id: \.offset) { _, error in
+                                Text("\(error.provider): \(error.message)").foregroundStyle(.orange)
+                            }
                         }
                     }
                 }
@@ -108,7 +110,7 @@ struct AccountQuotaView: View {
         }
     }
 
-    private func accountRow(_ account: AccountQuota) -> some View {
+    private func accountRow(_ account: AccountQuota, now: Date) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(account.provider.uppercased()).font(.caption.bold())
@@ -122,7 +124,7 @@ struct AccountQuotaView: View {
                 ForEach(account.windows.filter {
                     account.provider != "codex" || !$0.label.localizedCaseInsensitiveContains("spark")
                 }) { window in
-                    quotaRing(window)
+                    quotaRing(window, now: now)
                 }
             }
             .padding(.vertical, 6)
@@ -137,9 +139,10 @@ struct AccountQuotaView: View {
         }
     }
 
-    private func quotaRing(_ window: AccountQuotaWindow) -> some View {
+    private func quotaRing(_ window: AccountQuotaWindow, now: Date) -> some View {
         let remaining = max(0, min(100, window.remainingPercent))
         let color: Color = remaining < 20 ? .orange : .green
+        let countdown = Self.countdownText(window.resetsAt, now: now, language: l10n.effectiveLanguage)
         return HStack(spacing: 8) {
             ZStack {
                 Circle().stroke(.white.opacity(0.12), lineWidth: 4)
@@ -163,13 +166,46 @@ struct AccountQuotaView: View {
                 Text(window.label).font(.caption.weight(.medium))
                 Text(resetText(window.resetsAt))
                     .font(.caption2).foregroundStyle(.secondary)
+                if let countdown {
+                    Text(countdown)
+                        .font(.caption2).monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.8))
+                }
             }
             .fixedSize(horizontal: false, vertical: true)
         }
         .padding(2)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(window.label)
-        .accessibilityValue("\(remaining.formatted(.number.precision(.fractionLength(0))))% \(l10n["quota_left"]), \(resetText(window.resetsAt))")
+        .accessibilityValue("\(remaining.formatted(.number.precision(.fractionLength(0))))% \(l10n["quota_left"]), \(resetText(window.resetsAt))\(countdown.map { ", \($0)" } ?? "")")
+    }
+
+    static func countdownText(_ value: String?, now: Date, language: String) -> String? {
+        guard let date = AccountQuotaTimestamp.parse(value) else { return nil }
+        let seconds = date.timeIntervalSince(now)
+        let key: String
+        let arguments: [CVarArg]
+        if seconds <= 0 {
+            key = "quota_reset_due"
+            arguments = []
+        } else if seconds < 60 {
+            key = "quota_reset_soon"
+            arguments = []
+        } else {
+            let minutes = Int(seconds / 60)
+            if minutes >= 1_440 {
+                key = "quota_countdown_days"
+                arguments = [minutes / 1_440, (minutes % 1_440) / 60]
+            } else if minutes >= 60 {
+                key = "quota_countdown_hours"
+                arguments = [minutes / 60, minutes % 60]
+            } else {
+                key = "quota_countdown_minutes"
+                arguments = [minutes]
+            }
+        }
+        let format = L10n.strings[language]?[key] ?? L10n.strings["en"]?[key] ?? key
+        return String(format: format, arguments: arguments)
     }
 
     private func resetText(_ value: String?) -> String {
