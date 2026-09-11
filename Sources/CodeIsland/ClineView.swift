@@ -281,7 +281,7 @@ struct ClineView: View {
     }
 }
 
-#if DEBUG
+#if DEBUG && canImport(PreviewsMacros)
 #Preview("ClineView") {
     HStack(spacing: 20) {
         ClineView(status: .idle,            size: 54)

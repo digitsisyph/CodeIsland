@@ -69,6 +69,19 @@ build_watch() {
 }
 
 build_mac() {
+    if [ -z "${SIGN_ID:-}" ]; then
+        SIGN_ID=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)".*/\1/' 2>/dev/null || true)
+    fi
+    if [ -z "$SIGN_ID" ]; then
+        SIGN_ID=$(security find-identity -v -p codesigning | grep -v "REVOKED" | grep '"' | head -1 | sed 's/.*"\(.*\)".*/\1/' 2>/dev/null || true)
+    fi
+    SIGN_ID="${SIGN_ID:--}"
+    echo "Building the embedded account core..."
+    uv run --project AccountCore --with 'pyinstaller>=6,<7' pyinstaller \
+        --noconfirm --clean --onefile --name codeisland --codesign-identity "$SIGN_ID" \
+        --copy-metadata ccswap --collect-all textual --collect-all truststore \
+        --distpath .build/account-cli --workpath .build/account-core-work \
+        --specpath .build AccountCore/entrypoint.py
     echo "Building $APP_NAME (arm64 only)..."
     swift build -c release --arch arm64
 
@@ -84,6 +97,8 @@ build_mac() {
     cp "$ARM_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
     cp "$ARM_DIR/codeisland-bridge" "$APP_BUNDLE/Contents/Helpers/codeisland-bridge"
     cp Info.plist "$APP_BUNDLE/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c 'Add :CodeIslandUnifiedAccounts bool true' "$APP_BUNDLE/Contents/Info.plist"
+    cp .build/account-cli/codeisland "$APP_BUNDLE/Contents/Helpers/codeisland"
 
     echo "Embedding frameworks..."
     # Sparkle.xcframework macos-arm64_x86_64 slice is already universal; copy as-is to preserve symlinks.
@@ -100,8 +115,9 @@ build_mac() {
     install_name_tool -add_rpath "@executable_path/../../Frameworks" \
         "$APP_BUNDLE/Contents/Helpers/codeisland-bridge" 2>/dev/null || true
 
-    echo "Compiling app icon assets..."
-    xcrun actool \
+    if xcrun --find actool >/dev/null 2>&1; then
+      echo "Compiling app icon assets..."
+      xcrun actool \
         --output-format human-readable-text \
         --warnings \
         --errors \
@@ -114,6 +130,9 @@ build_mac() {
         --compile "$APP_BUNDLE/Contents/Resources" \
         "$ICON_CATALOG" \
         "$ICON_SOURCE"
+    else
+      echo "Using the bundled .icns icon (Xcode asset compiler not installed)."
+    fi
     cp "Sources/CodeIsland/Resources/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 
     # Copy SPM resource bundles into Contents/Resources/ (required for code signing)
@@ -156,6 +175,7 @@ build_mac() {
     codesign --force --options runtime --sign "$SIGN_ID" "$SPARKLE_FW"
 
     codesign --force --options runtime --sign "$SIGN_ID" "$APP_BUNDLE/Contents/Helpers/codeisland-bridge"
+    codesign --force --options runtime --sign "$SIGN_ID" "$APP_BUNDLE/Contents/Helpers/codeisland"
     codesign --force --options runtime --sign "$SIGN_ID" --entitlements "$ENTITLEMENTS" "$APP_BUNDLE"
 
     if [ "$NOTARIZE" = true ] && [[ "$SIGN_ID" == *"Developer ID"* ]]; then

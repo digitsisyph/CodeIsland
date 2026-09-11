@@ -471,6 +471,9 @@ private struct CompactLeftWing: View {
     var body: some View {
         HStack(spacing: 6) {
             if expanded {
+                NotchIconButton(icon: "gauge.with.needle", tooltip: "Accounts & quota") {
+                    AccountQuotaWindowController.shared.show()
+                }
                 AppLogoView(size: 36, showBackground: false)
                 if appState.sessions.count > 1 {
                     HStack(spacing: 1) {
@@ -820,6 +823,9 @@ private struct IdleIndicatorBar: View {
                         .foregroundStyle(.white.opacity(0.4))
 
                     HStack(spacing: 4) {
+                        NotchIconButton(icon: "gauge.with.needle", tooltip: "Accounts & quota") {
+                            AccountQuotaWindowController.shared.show()
+                        }
                         NotchIconButton(icon: soundEnabled ? "speaker.wave.2" : "speaker.slash", tooltip: soundEnabled ? l10n["mute"] : l10n["enable_sound_tooltip"]) {
                             soundEnabled.toggle()
                         }

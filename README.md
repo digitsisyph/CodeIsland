@@ -13,6 +13,13 @@
 
 ---
 
+**This fork combines CodeIsland and Claude/Codex multi-account quotas in one repository.**
+`AccountCore/` contains the integrated ccswap source. `codeisland usage`,
+`codeisland watch`, and the app's **Accounts & quota** page share the same core.
+Build the app and embedded CLI together with `./build.sh`; see the
+[usage and build guide](docs/unified-accounts.md). The Homebrew instructions below
+install upstream CodeIsland; build this fork from source.
+
 <p align="center">
   <img src="docs/images/notch-panel.png" width="700" alt="CodeIsland Panel Preview">
 </p>

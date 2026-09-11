@@ -87,6 +87,10 @@ final class StatusItemController: NSObject {
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
 
+        let accountsItem = NSMenuItem(title: "Accounts & quota…", action: #selector(openAccounts), keyEquivalent: "")
+        accountsItem.target = self
+        menu.addItem(accountsItem)
+
         let settingsItem = NSMenuItem(
             title: L10n.shared["settings_ellipsis"],
             action: #selector(openSettings),
@@ -112,6 +116,10 @@ final class StatusItemController: NSObject {
         Task { @MainActor in
             SettingsWindowController.shared.show()
         }
+    }
+
+    @objc private func openAccounts() {
+        AccountQuotaWindowController.shared.show()
     }
 
     @objc private func quitApp() {
