@@ -67,9 +67,19 @@ struct AccountQuotaView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 if let snapshot {
-                    Text("Claude \(snapshot.accounts.filter { $0.provider == "claude" }.count) · Codex \(snapshot.accounts.filter { $0.provider == "codex" }.count)")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 12) {
+                        ForEach(["claude", "codex"], id: \.self) { provider in
+                            let count = snapshot.accounts.filter { $0.provider == provider }.count
+                            HStack(spacing: 4) {
+                                QuotaProviderIcon(provider: provider, size: 14)
+                                Text("\(count)")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("\(provider.capitalized): \(count)")
+                        }
+                    }
                 }
                 if sync.enabled {
                     Image(systemName: sync.errorKey == nil ? "icloud" : "icloud.slash")
@@ -128,7 +138,7 @@ struct AccountQuotaView: View {
     private func accountRow(_ account: AccountQuota, now: Date) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(account.provider.uppercased()).font(.caption.bold())
+                QuotaProviderIcon(provider: account.provider, size: 18)
                 Text(account.email).fontWeight(.semibold).textSelection(.enabled)
                 if account.active { Text("Active").font(.caption).foregroundStyle(.green) }
                 Spacer()
@@ -162,6 +172,7 @@ struct AccountQuotaView: View {
         let remaining = max(0, min(100, window.remainingPercent))
         let color: Color = remaining < 20 ? .orange : .green
         let countdown = showCountdown ? Self.countdownText(window.resetsAt, now: now, language: l10n.effectiveLanguage) : nil
+        let countdownColor = Self.countdownColor(window.resetsAt, now: now)
         return HStack(spacing: 8) {
             ZStack {
                 Circle().stroke(.white.opacity(0.12), lineWidth: 4)
@@ -188,7 +199,7 @@ struct AccountQuotaView: View {
                 if let countdown {
                     Text(countdown)
                         .font(.caption2).monospacedDigit()
-                        .foregroundStyle(.white.opacity(0.8))
+                        .foregroundStyle(countdownColor)
                 }
             }
             .fixedSize(horizontal: false, vertical: true)
@@ -197,6 +208,14 @@ struct AccountQuotaView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(window.label)
         .accessibilityValue("\(remaining.formatted(.number.precision(.fractionLength(0))))% \(l10n["quota_left"]), \(resetText(window.resetsAt))\(countdown.map { ", \($0)" } ?? "")")
+    }
+
+    static func countdownColor(_ value: String?, now: Date) -> Color {
+        guard let date = AccountQuotaTimestamp.parse(value) else { return .white.opacity(0.8) }
+        let seconds = date.timeIntervalSince(now)
+        if seconds <= 86_400 { return .red }
+        if seconds <= 3 * 86_400 { return .yellow }
+        return .white.opacity(0.8)
     }
 
     static func countdownText(_ value: String?, now: Date, language: String) -> String? {
@@ -230,5 +249,35 @@ struct AccountQuotaView: View {
     private func resetText(_ value: String?) -> String {
         guard let date = AccountQuotaTimestamp.parse(value) else { return "—" }
         return date.formatted(.dateTime.month(.twoDigits).day(.twoDigits).hour().minute())
+    }
+}
+
+private struct QuotaProviderIcon: View {
+    let provider: String
+    let size: CGFloat
+
+    private static let images: [String: NSImage] = {
+        var images: [String: NSImage] = [:]
+        for provider in ["claude", "codex"] {
+            if let url = Bundle.appModule.url(forResource: provider, withExtension: "png",
+                                             subdirectory: "Resources/quota-icons"),
+               let image = NSImage(contentsOf: url) {
+                images[provider] = image
+            }
+        }
+        return images
+    }()
+
+    var body: some View {
+        Group {
+            if let image = Self.images[provider] {
+                Image(nsImage: image).resizable().scaledToFit()
+            } else {
+                Image(systemName: "terminal").resizable().scaledToFit()
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityLabel(provider.capitalized)
+        .help(provider.capitalized)
     }
 }

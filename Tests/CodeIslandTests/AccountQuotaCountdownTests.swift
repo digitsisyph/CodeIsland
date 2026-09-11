@@ -1,10 +1,29 @@
 import XCTest
+import SwiftUI
 @testable import CodeIsland
 
 @MainActor
 final class AccountQuotaCountdownTests: XCTestCase {
     private let reset = "2026-09-14T09:00:00Z"
     private let resetDate = Date(timeIntervalSince1970: 1_789_376_400)
+
+    func testCountdownColorChangesAtOneAndThreeDays() {
+        let cases: [(TimeInterval, Color)] = [
+            (3 * 86_400 + 1, .white.opacity(0.8)),
+            (3 * 86_400, .yellow),
+            (86_400 + 1, .yellow),
+            (86_400, .red),
+            (60, .red),
+            (0, .red),
+            (-60, .red)
+        ]
+        for (seconds, expected) in cases {
+            XCTAssertEqual(AccountQuotaView.countdownColor(reset,
+                now: resetDate.addingTimeInterval(-seconds)), expected)
+        }
+        XCTAssertEqual(AccountQuotaView.countdownColor(nil, now: resetDate), .white.opacity(0.8))
+        XCTAssertEqual(AccountQuotaView.countdownColor("unknown", now: resetDate), .white.opacity(0.8))
+    }
 
     func testCountdownChangesUnitsAtDayAndHourBoundaries() {
         for (seconds, expected) in [
