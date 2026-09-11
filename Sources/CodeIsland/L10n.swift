@@ -44,6 +44,10 @@ final class L10n: ObservableObject {
     ]
 
     private static let en: [String: String] = [
+        "quota_tab": "Quota",
+        "quota_refresh": "Refresh",
+        "quota_left": "left",
+        "quota_footer": "Remaining quota · resets in local time · refreshes every minute",
         // Settings pages
         "general": "General",
         "behavior": "Behavior",
@@ -746,6 +750,10 @@ final class L10n: ObservableObject {
     ]) { _, localized in localized }
 
     private static let zh: [String: String] = [
+        "quota_tab": "额度",
+        "quota_refresh": "刷新",
+        "quota_left": "剩余",
+        "quota_footer": "剩余额度 · 本地时区重置时间 · 每分钟刷新",
         // Settings pages
         "general": "通用",
         "behavior": "行为",

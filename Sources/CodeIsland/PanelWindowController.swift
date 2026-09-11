@@ -341,7 +341,8 @@ class PanelWindowController: NSObject, NSWindowDelegate {
             hasNotch: hasNotch,
             notchHeight: notchHeight,
             notchW: notchW,
-            screenWidth: screen.frame.width
+            screenWidth: screen.frame.width,
+            quotaContentHeight: min(380, max(160, panelSize(for: screen).height - notchHeight - 50))
         )
         let contentView = NotchHostingView(rootView: rootView)
         contentView.sizingOptions = []
@@ -622,7 +623,7 @@ class PanelWindowController: NSObject, NSWindowDelegate {
             return
         }
 
-        if settings.hideWhenNoSession && appState.activeSessionCount == 0 {
+        if settings.hideWhenNoSession && appState.activeSessionCount == 0 && !appState.surface.isExpanded {
             panel.orderOut(nil)
             MascotAnimationGate.shared.setPanelVisible(false)
             return

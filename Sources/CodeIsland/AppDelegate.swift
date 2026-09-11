@@ -226,7 +226,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 withAnimation(NotchAnimation.close) { appState.surface = .collapsed }
             } else {
                 withAnimation(NotchAnimation.open) {
-                    appState.surface = .sessionList
+                    appState.surface = appState.overviewSurface
                     appState.cancelCompletionQueue()
                     if appState.activeSessionId == nil {
                         appState.activeSessionId = appState.sessions.keys.sorted().first

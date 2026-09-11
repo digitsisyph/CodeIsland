@@ -8,9 +8,11 @@ final class AccountQuotaMonitor: ObservableObject {
     @Published private(set) var snapshot: AccountQuotaSnapshot?
     @Published private(set) var isRefreshing = false
     @Published private(set) var error: String?
+    private var refreshedAt: Date?
 
-    func refresh() async {
+    func refresh(force: Bool = false) async {
         guard !isRefreshing else { return }
+        if !force, let refreshedAt, Date().timeIntervalSince(refreshedAt) < 60 { return }
         isRefreshing = true
         defer { isRefreshing = false }
         let bundled = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/codeisland")
@@ -39,6 +41,7 @@ final class AccountQuotaMonitor: ObservableObject {
                 return
             }
             snapshot = result
+            refreshedAt = Date()
             error = nil
         } catch {
             self.error = "The account core returned an unreadable snapshot."
@@ -48,15 +51,23 @@ final class AccountQuotaMonitor: ObservableObject {
 
 struct AccountQuotaView: View {
     @ObservedObject private var monitor = AccountQuotaMonitor.shared
+    @ObservedObject private var l10n = L10n.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("Accounts & quota", systemImage: "gauge.with.needle")
-                    .font(.headline)
+                if let snapshot = monitor.snapshot {
+                    Text("Claude \(snapshot.accounts.filter { $0.provider == "claude" }.count) · Codex \(snapshot.accounts.filter { $0.provider == "codex" }.count)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 if monitor.isRefreshing { ProgressView().controlSize(.small) }
-                Button("Refresh") { Task { await monitor.refresh() } }
+                Button { Task { await monitor.refresh(force: true) } } label: {
+                    Label(l10n["quota_refresh"], systemImage: "arrow.clockwise")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                    .buttonStyle(.plain)
                     .disabled(monitor.isRefreshing)
             }
             if let error = monitor.error {
@@ -82,11 +93,12 @@ struct AccountQuotaView: View {
             } else if !monitor.isRefreshing {
                 Text("Refresh to load account quotas.").foregroundStyle(.secondary)
             }
-            Text("Remaining quota · reset times in your local timezone · refresh every minute while open")
+            Text(l10n["quota_footer"])
                 .font(.caption).foregroundStyle(.secondary)
         }
-        .padding(16)
-        .frame(minWidth: 500, minHeight: 320)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+        .foregroundStyle(.white)
         .task {
             await monitor.refresh()
             while !Task.isCancelled {
@@ -111,7 +123,7 @@ struct AccountQuotaView: View {
                     HStack {
                         Text(window.label)
                         Spacer()
-                        Text("\(window.remainingPercent, specifier: "%.0f")% left")
+                        Text("\(window.remainingPercent, specifier: "%.0f")% \(l10n["quota_left"])")
                             .monospacedDigit()
                         Text(resetText(window.resetsAt)).foregroundStyle(.secondary)
                     }.font(.caption)
@@ -133,32 +145,5 @@ struct AccountQuotaView: View {
     private func resetText(_ value: String?) -> String {
         guard let date = AccountQuotaTimestamp.parse(value) else { return "—" }
         return date.formatted(.dateTime.month(.twoDigits).day(.twoDigits).hour().minute())
-    }
-}
-
-@MainActor
-final class AccountQuotaWindowController: NSObject, NSWindowDelegate {
-    static let shared = AccountQuotaWindowController()
-    private var window: NSWindow?
-
-    func show() {
-        if window == nil {
-            let created = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 650, height: 650),
-                                   styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                                   backing: .buffered, defer: false)
-            created.title = "CodeIsland · Accounts & quota"
-            created.isReleasedWhenClosed = false
-            created.delegate = self
-            created.center()
-            window = created
-        }
-        // A fresh hosting view gives the polling task the window's lifetime.
-        window?.contentView = NSHostingView(rootView: AccountQuotaView())
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        window?.contentView = nil
     }
 }

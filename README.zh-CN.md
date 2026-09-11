@@ -15,7 +15,7 @@
 
 **本 fork：Claude / Codex 多账号额度与 CodeIsland 合并在一个仓库。**
 `AccountCore/` 包含整合后的 ccswap 源码；`codeisland usage`、`codeisland watch`
-和 App 的「Accounts & quota」页面共用额度核心。运行 `./build.sh` 即可同时构建
+和灵动岛内的「额度」标签页共用额度核心。运行 `./build.sh` 即可同时构建
 App 和内置 CLI，详见[使用与构建说明](docs/unified-accounts.md)。下方 Homebrew
 安装方式指向原版；本 fork 请从源码构建。
 

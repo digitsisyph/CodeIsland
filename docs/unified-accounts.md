@@ -34,10 +34,13 @@ only the app bundle. Build prerequisites are uv and the macOS Swift toolchain.
 Full Xcode is optional for the enhanced icon assets; the bundled .icns is used
 with Command Line Tools alone.
 
-Open **Accounts & quota** from the menu bar or the gauge button on the island.
-The native account window reads the bundled core's versioned, credential-free
-snapshot and refreshes once a minute while open. The source build uses this
-checkout's virtual environment. The CLI and window display the same remaining
+Expand the island and select its **Quota** tab beside **Sessions**. Both views
+stay inside the same island; the selected tab is remembered when it collapses.
+The menu-bar account action and idle-island gauge also open this inline tab,
+including when no coding sessions are running.
+The quota view reads the bundled core's versioned, credential-free snapshot
+and refreshes once a minute while open. The source build uses this
+checkout's virtual environment. The CLI and island display the same remaining
 percentages, exact reset timestamps, scoped model windows, Codex reset-credit
 counts and earliest expiry, active account, and last measurement time.
 

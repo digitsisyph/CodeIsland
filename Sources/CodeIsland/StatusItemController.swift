@@ -119,7 +119,7 @@ final class StatusItemController: NSObject {
     }
 
     @objc private func openAccounts() {
-        AccountQuotaWindowController.shared.show()
+        (NSApp.delegate as? AppDelegate)?.appState.showAccountQuotas()
     }
 
     @objc private func quitApp() {

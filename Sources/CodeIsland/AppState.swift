@@ -215,8 +215,18 @@ final class AppState {
     }
     /// Preview-only: mock question payload for DebugHarness (no continuation needed)
     var previewQuestionPayload: QuestionPayload?
+    private(set) var overviewSurface: IslandSurface = .sessionList
+
+    func showAccountQuotas() {
+        cancelCompletionQueue()
+        surface = .accountQuotas
+    }
+
     var surface: IslandSurface = .collapsed {
         didSet {
+            if surface == .sessionList || surface == .accountQuotas {
+                overviewSurface = surface
+            }
             // Any expansion counts as "seen" for the glance completion dot.
             if surface.isExpanded, glanceCompletionActive {
                 glanceDismissTask?.cancel()

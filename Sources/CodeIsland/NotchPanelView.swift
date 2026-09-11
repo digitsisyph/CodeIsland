@@ -91,6 +91,7 @@ struct NotchPanelView: View {
     let notchHeight: CGFloat
     let notchW: CGFloat
     let screenWidth: CGFloat
+    let quotaContentHeight: CGFloat
 
     @AppStorage(SettingsKey.contentFontSize) private var contentFontSize = SettingsDefaults.contentFontSize
     @AppStorage(SettingsKey.showAgentDetails) private var showAgentDetails = SettingsDefaults.showAgentDetails
@@ -116,11 +117,11 @@ struct NotchPanelView: View {
     /// First launch / no-session state should still render a visible marker so the app
     /// doesn't disappear completely behind the physical notch.
     private var showIdleIndicator: Bool {
-        !isActive && !hideWhenNoSession
+        !isActive && !hideWhenNoSession && !appState.surface.isExpanded
     }
     /// Whether the bar content should be visible (respects hideWhenNoSession)
     private var showBar: Bool {
-        isActive && !(hideWhenNoSession && appState.activeSessionCount == 0)
+        appState.surface.isExpanded || (isActive && !(hideWhenNoSession && appState.activeSessionCount == 0))
     }
     private var shouldShowExpanded: Bool {
         showBar && appState.surface.isExpanded
@@ -150,9 +151,9 @@ struct NotchPanelView: View {
     private var panelWidth: CGFloat {
         let nw = effectiveNotchW
         let maxWidth = min(620, screenWidth - 40)
+        if shouldShowExpanded { return min(max(nw + 200, 580), maxWidth) }
         if showIdleIndicator { return idleHovered ? nw + compactWingWidth * 2 + 80 : nw + compactWingWidth * 2 }
         if !isActive { return hasNotch ? nw - 20 : nw }
-        if shouldShowExpanded { return min(max(nw + 200, 580), maxWidth) }
         let wing = compactWingWidth
         let extra: CGFloat = appState.status == .idle ? 0 : 20
         // Reserve space for tool status — proportional to screen width
@@ -182,6 +183,7 @@ struct NotchPanelView: View {
                     .frame(height: notchHeight)
                 } else if showIdleIndicator {
                     IdleIndicatorBar(
+                        appState: appState,
                         mascotSize: mascotSize,
                         compactWingWidth: compactWingWidth,
                         notchW: effectiveNotchW,
@@ -201,6 +203,10 @@ struct NotchPanelView: View {
                         .stroke(.white.opacity(0.15), style: StrokeStyle(lineWidth: 0.5, dash: [4, 3]))
                         .frame(height: 0.5)
                         .padding(.horizontal, 12)
+
+                    if appState.surface == .sessionList || appState.surface == .accountQuotas {
+                        IslandOverviewTabs(appState: appState)
+                    }
 
                     switch appState.surface {
                     case .approvalCard(let sid):
@@ -268,6 +274,11 @@ struct NotchPanelView: View {
                     case .sessionList:
                         SessionListView(appState: appState, onlySessionId: nil)
                             .transition(.blurFade.combined(with: .move(edge: .top)))
+                    case .accountQuotas:
+                        AccountQuotaView()
+                            .frame(height: quotaContentHeight)
+                            .environment(\.colorScheme, .dark)
+                            .transition(.opacity)
                     case .collapsed:
                         EmptyView()
                     }
@@ -383,7 +394,7 @@ struct NotchPanelView: View {
                             }
                             hoverPhase = NotchHoverInteraction.nextPhase(from: hoverPhase, event: .expandDelayElapsed)
                             withAnimation(NotchAnimation.open) {
-                                appState.surface = .sessionList
+                                appState.surface = appState.overviewSurface
                                 appState.cancelCompletionQueue()
                                 if appState.activeSessionId == nil {
                                     appState.activeSessionId = appState.sessions.keys.sorted().first
@@ -425,6 +436,37 @@ struct NotchPanelView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(NotchAnimation.open, value: appState.surface)
+    }
+}
+
+private struct IslandOverviewTabs: View {
+    var appState: AppState
+    @ObservedObject private var l10n = L10n.shared
+
+    var body: some View {
+        HStack(spacing: 4) {
+            tab(l10n["sessions"], icon: "square.stack", surface: .sessionList)
+            tab(l10n["quota_tab"], icon: "gauge.with.needle", surface: .accountQuotas)
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+    }
+
+    private func tab(_ title: String, icon: String, surface: IslandSurface) -> some View {
+        Button {
+            appState.cancelCompletionQueue()
+            withAnimation(NotchAnimation.micro) { appState.surface = surface }
+        } label: {
+            Label(title, systemImage: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(appState.surface == surface ? .white : .white.opacity(0.45))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(RoundedRectangle(cornerRadius: 7).fill(.white.opacity(appState.surface == surface ? 0.12 : 0)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(appState.surface == surface ? .isSelected : [])
     }
 }
 
@@ -471,11 +513,8 @@ private struct CompactLeftWing: View {
     var body: some View {
         HStack(spacing: 6) {
             if expanded {
-                NotchIconButton(icon: "gauge.with.needle", tooltip: "Accounts & quota") {
-                    AccountQuotaWindowController.shared.show()
-                }
                 AppLogoView(size: 36, showBackground: false)
-                if appState.sessions.count > 1 {
+                if appState.sessions.count > 1 && appState.surface != .accountQuotas {
                     HStack(spacing: 1) {
                         ForEach([("all", "ALL"), ("status", "STA"), ("cli", "CLI")], id: \.0) { tag, label in
                             let selected = groupingMode == tag
@@ -794,6 +833,7 @@ private struct NotchIconButton: View {
 // MARK: - Idle Indicator Bar
 
 private struct IdleIndicatorBar: View {
+    var appState: AppState
     let mascotSize: CGFloat
     let compactWingWidth: CGFloat
     let notchW: CGFloat
@@ -824,7 +864,7 @@ private struct IdleIndicatorBar: View {
 
                     HStack(spacing: 4) {
                         NotchIconButton(icon: "gauge.with.needle", tooltip: "Accounts & quota") {
-                            AccountQuotaWindowController.shared.show()
+                            appState.showAccountQuotas()
                         }
                         NotchIconButton(icon: soundEnabled ? "speaker.wave.2" : "speaker.slash", tooltip: soundEnabled ? l10n["mute"] : l10n["enable_sound_tooltip"]) {
                             soundEnabled.toggle()
