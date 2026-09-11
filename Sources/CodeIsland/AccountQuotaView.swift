@@ -172,7 +172,8 @@ struct AccountQuotaView: View {
         let remaining = max(0, min(100, window.remainingPercent))
         let color: Color = remaining < 20 ? .orange : .green
         let countdown = showCountdown ? Self.countdownText(window.resetsAt, now: now, language: l10n.effectiveLanguage) : nil
-        let countdownColor = Self.countdownColor(window.resetsAt, now: now)
+        let countdownColor = window.label.localizedCaseInsensitiveContains("weekly")
+            ? Self.countdownColor(window.resetsAt, now: now) : Color.white.opacity(0.8)
         return HStack(spacing: 8) {
             ZStack {
                 Circle().stroke(.white.opacity(0.12), lineWidth: 4)
