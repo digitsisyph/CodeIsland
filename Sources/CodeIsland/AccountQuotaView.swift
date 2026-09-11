@@ -118,19 +118,12 @@ struct AccountQuotaView: View {
             }
             Text(account.organization.isEmpty ? "Personal" : account.organization)
                 .font(.caption).foregroundStyle(.secondary)
-            ForEach(account.windows) { window in
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack {
-                        Text(window.label)
-                        Spacer()
-                        Text("\(window.remainingPercent, specifier: "%.0f")% \(l10n["quota_left"])")
-                            .monospacedDigit()
-                        Text(resetText(window.resetsAt)).foregroundStyle(.secondary)
-                    }.font(.caption)
-                    ProgressView(value: max(0, min(100, window.remainingPercent)), total: 100)
-                        .tint(window.remainingPercent < 20 ? .orange : .green)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), alignment: .leading)], alignment: .leading, spacing: 12) {
+                ForEach(account.windows) { window in
+                    quotaRing(window)
                 }
             }
+            .padding(.vertical, 6)
             if let credits = account.resetCredits {
                 Text("Reset credits: \(credits.available.map(String.init) ?? "—") · earliest expiry: \(resetText(credits.earliestExpiresAt))")
                     .font(.caption)
@@ -140,6 +133,41 @@ struct AccountQuotaView: View {
             }
             Text("Updated: \(resetText(account.fetchedAt))").font(.caption2).foregroundStyle(.secondary)
         }
+    }
+
+    private func quotaRing(_ window: AccountQuotaWindow) -> some View {
+        let remaining = max(0, min(100, window.remainingPercent))
+        let color: Color = remaining < 20 ? .orange : .green
+        return HStack(spacing: 8) {
+            ZStack {
+                Circle().stroke(.white.opacity(0.12), lineWidth: 4)
+                if remaining > 0 {
+                    Circle()
+                        .trim(from: 0, to: remaining / 100)
+                        .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                }
+                VStack(spacing: 1) {
+                    Text("\(remaining, specifier: "%.0f")%")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                    Text(l10n["quota_left"])
+                        .font(.system(size: 8))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 48, height: 48)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(window.label).font(.caption.weight(.medium))
+                Text(resetText(window.resetsAt))
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(2)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(window.label)
+        .accessibilityValue("\(remaining.formatted(.number.precision(.fractionLength(0))))% \(l10n["quota_left"]), \(resetText(window.resetsAt))")
     }
 
     private func resetText(_ value: String?) -> String {
