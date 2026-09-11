@@ -158,7 +158,9 @@ struct AccountQuotaView: View {
             }
             .padding(.vertical, 6)
             if let credits = account.resetCredits {
-                Text("Reset credits: \(credits.available.map(String.init) ?? "—") · earliest expiry: \(resetText(credits.earliestExpiresAt))")
+                let expiry = Text(resetText(credits.earliestExpiresAt))
+                    .foregroundColor(Self.countdownColor(credits.earliestExpiresAt, now: now))
+                Text("Reset credits: \(credits.available.map(String.init) ?? "—") · earliest expiry: \(expiry)")
                     .font(.caption)
             }
             if account.status != "ok" {
