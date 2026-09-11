@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AVFoundation
 import UniformTypeIdentifiers
 import CodeIslandCore
 
@@ -320,6 +321,7 @@ private struct SidebarRow: View {
 
 private struct GeneralPage: View {
     @ObservedObject private var l10n = L10n.shared
+    @ObservedObject private var keepAwake = KeepAwakeManager.shared
     @AppStorage(SettingsKey.displayChoice) private var displayChoice = SettingsDefaults.displayChoice
     @AppStorage(SettingsKey.allowHorizontalDrag) private var allowHorizontalDrag = SettingsDefaults.allowHorizontalDrag
     @AppStorage(SettingsKey.avoidMenuBarIcons) private var avoidMenuBarIcons = SettingsDefaults.avoidMenuBarIcons
@@ -367,6 +369,16 @@ private struct GeneralPage: View {
                         let label = isBuiltin ? l10n["builtin_display"] : name
                         Text(label).tag("screen_\(index)")
                     }
+                }
+            }
+            Section(l10n["coffee_title"]) {
+                Toggle(l10n["coffee_enabled"], isOn: Binding(
+                    get: { keepAwake.isEnabled }, set: { keepAwake.setEnabled($0) }))
+                Toggle(l10n["coffee_display"], isOn: $keepAwake.keepDisplayAwake)
+                Text(l10n["coffee_description"])
+                    .font(.caption).foregroundStyle(.secondary)
+                if let error = keepAwake.errorKey {
+                    Text(l10n[error]).font(.caption).foregroundStyle(.orange)
                 }
             }
         }
@@ -1195,6 +1207,10 @@ private struct MascotRow: View {
 
 private struct SoundPage: View {
     @ObservedObject private var l10n = L10n.shared
+    @ObservedObject private var sound = SoundManager.shared
+    @AppStorage(SettingsKey.completionSoundMode) private var completionSoundMode = SettingsDefaults.completionSoundMode
+    @AppStorage(SettingsKey.speechVoiceID) private var speechVoiceID = SettingsDefaults.speechVoiceID
+    @State private var voices = AVSpeechSynthesisVoice.speechVoices().sorted { $0.name < $1.name }
     @AppStorage(SettingsKey.soundEnabled) private var soundEnabled = SettingsDefaults.soundEnabled
     @AppStorage(SettingsKey.soundVolume) private var soundVolume = SettingsDefaults.soundVolume
     @AppStorage(SettingsKey.soundSessionStart) private var soundSessionStart = SettingsDefaults.soundSessionStart
@@ -1255,9 +1271,36 @@ private struct SoundPage: View {
             }
 
             if soundEnabled {
+                Section(l10n["completion_reminder"]) {
+                    Toggle(l10n["task_complete"], isOn: $soundTaskComplete)
+                    Picker(l10n["completion_style"], selection: $completionSoundMode) {
+                        Text(l10n["completion_chime"]).tag("chime")
+                        Text(l10n["completion_speech"]).tag("speech")
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: completionSoundMode) { _, _ in sound.stopSpeech() }
+                    if completionSoundMode == "speech" {
+                        Picker(l10n["speech_voice"], selection: $speechVoiceID) {
+                            Text(l10n["speech_default"]).tag("")
+                            ForEach(voices, id: \.identifier) { voice in
+                                Text("\(voice.name) · \(voice.language)").tag(voice.identifier)
+                            }
+                        }
+                        .onChange(of: speechVoiceID) { _, _ in sound.stopSpeech() }
+                    }
+                    HStack {
+                        Text(l10n["completion_description"]).font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button {
+                            if sound.isSpeaking { sound.stopSpeech() } else { sound.previewCompletion() }
+                        } label: {
+                            Label(l10n[sound.isSpeaking ? "speech_stop" : "sound_preview"],
+                                  systemImage: sound.isSpeaking ? "stop.fill" : "play.fill")
+                        }
+                    }
+                }
                 Section(l10n["sessions"]) {
                     SoundEventRow(title: l10n["session_start"], subtitle: l10n["new_claude_session"], soundName: "8bit_start", isOn: $soundSessionStart)
-                    SoundEventRow(title: l10n["task_complete"], subtitle: l10n["ai_completed_reply"], soundName: "8bit_complete", isOn: $soundTaskComplete)
                     SoundEventRow(title: l10n["task_error"], subtitle: l10n["tool_or_api_error"], soundName: "8bit_error", isOn: $soundTaskError)
                 }
 

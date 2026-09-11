@@ -1,8 +1,10 @@
 import AppKit
+import AVFoundation
+import Combine
 
-/// Plays 8-bit sound effects in response to hook events
+/// Plays event sounds and queued, on-device completion announcements.
 @MainActor
-class SoundManager {
+class SoundManager: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     static let shared = SoundManager()
 
     private let defaults = UserDefaults.standard
@@ -10,14 +12,19 @@ class SoundManager {
     /// Map event names to 8-bit WAV file names (without extension)
     static let eventSounds: [(event: String, sound: String, key: String, label: String)] = [
         ("SessionStart",      "8bit_start",    SettingsKey.soundSessionStart,   "会话开始"),
-        ("TaskRoundComplete", "8bit_complete",  SettingsKey.soundTaskComplete,   "任务完成"),
-        ("Stop",              "8bit_complete",  SettingsKey.soundTaskComplete,   "任务完成"),
+        ("TaskRoundComplete", "completion_chime", SettingsKey.soundTaskComplete, "任务完成"),
+        ("Stop",              "completion_chime", SettingsKey.soundTaskComplete, "任务完成"),
         ("PostToolUseFailure","8bit_error",     SettingsKey.soundTaskError,      "任务错误"),
         ("PermissionRequest", "8bit_approval",  SettingsKey.soundApprovalNeeded, "需要审批"),
         ("UserPromptSubmit",  "8bit_submit",    SettingsKey.soundPromptSubmit,   "任务确认"),
     ]
 
     private var soundCache: [String: NSSound] = [:]
+    private let synthesizer = AVSpeechSynthesizer()
+    private var settingsObserver: AnyCancellable?
+    private var quietHoursTimer: Timer?
+    @Published private(set) var isSpeaking = false
+    var speechSink: ((String) -> Void)?
 
     /// Where a *decided* event sound goes. Production plays it; a test installs
     /// a recorder and asserts on the names it receives.
@@ -41,7 +48,16 @@ class SoundManager {
         play(soundName)
     }
 
-    private init() {
+    private override init() {
+        super.init()
+        synthesizer.delegate = self
+        settingsObserver = NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.stopSpeechIfMuted() }
+            }
+        quietHoursTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.stopSpeechIfMuted() }
+        }
         // Pre-load all sounds into cache
         for entry in Self.eventSounds {
             if let sound = loadSound(entry.sound) {
@@ -57,6 +73,67 @@ class SoundManager {
         guard let entry = Self.eventSounds.first(where: { $0.event == eventName }) else { return }
         guard defaults.bool(forKey: entry.key) else { return }
         emit(entry.sound)
+    }
+
+    func playCompletion(provider: String, title: String) {
+        guard defaults.bool(forKey: SettingsKey.soundEnabled),
+              defaults.bool(forKey: SettingsKey.soundTaskComplete), !quietHoursActive else { return }
+        emitCompletion(provider: provider, title: title)
+    }
+
+    func previewCompletion() {
+        stopSpeech()
+        emitCompletion(provider: "codex", title: "示例会话")
+    }
+
+    private func emitCompletion(provider: String, title: String) {
+        guard defaults.string(forKey: SettingsKey.completionSoundMode) == "speech" else {
+            emit("completion_chime")
+            return
+        }
+        let voiceID = defaults.string(forKey: SettingsKey.speechVoiceID) ?? ""
+        let voice = (voiceID.isEmpty ? nil : AVSpeechSynthesisVoice(identifier: voiceID))
+            ?? AVSpeechSynthesisVoice(language: "zh-CN")
+        let text = Self.completionAnnouncement(provider: provider, title: title, language: voice?.language ?? "zh-CN")
+        if let speechSink { speechSink(text); return }
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = voice
+        utterance.volume = volume
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        synthesizer.speak(utterance)
+    }
+
+    static func completionAnnouncement(provider: String, title: String, language: String) -> String {
+        let name = provider == "codex" ? "Codex" : provider == "claude" ? "Claude" : provider.capitalized
+        let shortTitle = String(title.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ").prefix(48))
+        return language.hasPrefix("zh") ? "\(name)，\(shortTitle)，已完成。" : "\(name), \(shortTitle), completed."
+    }
+
+    func stopSpeech() {
+        synthesizer.stopSpeaking(at: .immediate)
+        isSpeaking = false
+    }
+
+    private func stopSpeechIfMuted() {
+        if !defaults.bool(forKey: SettingsKey.soundEnabled)
+            || !defaults.bool(forKey: SettingsKey.soundTaskComplete) || quietHoursActive { stopSpeech() }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        Task { @MainActor in self.isSpeaking = true }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        Task { @MainActor in self.isSpeaking = self.synthesizer.isSpeaking }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor in self.isSpeaking = self.synthesizer.isSpeaking }
+    }
+
+    private var volume: Float {
+        let percent = defaults.object(forKey: SettingsKey.soundVolume) as? Int ?? SettingsDefaults.soundVolume
+        return Float(max(0, min(100, percent))) / 100
     }
 
     /// Play boot sound on app launch
@@ -105,21 +182,21 @@ class SoundManager {
             return
         }
         if sound.isPlaying { sound.stop() }
-        let volume = defaults.integer(forKey: SettingsKey.soundVolume)
-        sound.volume = Float(volume) / 100.0
+        sound.volume = volume
         sound.play()
     }
 
     /// Play a named 8-bit WAV with volume control, checking for custom sound first
     private func play(_ name: String) {
-        let sound: NSSound? = loadCustomSound(name) ?? soundCache[name] ?? loadSound(name)
+        let sound: NSSound? = name == "completion_chime"
+            ? NSSound(named: NSSound.Name("Glass")) ?? loadSound("8bit_complete")
+            : loadCustomSound(name) ?? soundCache[name] ?? loadSound(name)
         guard let sound else {
             NSSound.beep()
             return
         }
         if sound.isPlaying { sound.stop() }
-        let volume = defaults.integer(forKey: SettingsKey.soundVolume)
-        sound.volume = Float(volume) / 100.0
+        sound.volume = volume
         sound.play()
     }
 

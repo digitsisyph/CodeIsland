@@ -196,6 +196,7 @@ extension AppState {
         if let turnStatus = delta.turnStatus {
             switch turnStatus {
             case .processing:
+                completionSoundSettled.remove(delta.sessionId)
                 session.status = .processing
                 session.interrupted = false
                 session.taskRoundEnded = false
@@ -203,6 +204,9 @@ extension AppState {
                 session.status = .idle
                 session.currentTool = nil
                 session.toolDescription = nil
+                if let outcome = delta.turnOutcome {
+                    session.interrupted = outcome != .completed
+                }
             }
             // A status-only event is still activity. This matters for a long Codex
             // turn whose transcript has not emitted a message yet.
@@ -268,6 +272,9 @@ extension AppState {
         if mutated {
             session.lastActivity = Date()
             sessions[delta.sessionId] = session
+        }
+        if session.source == "codex", let outcome = delta.turnOutcome {
+            notifySessionCompletion(sessionId: delta.sessionId, outcome: outcome, turnID: delta.turnID)
         }
         if questionStateChanged {
             // Hooks stay silent while Cursor waits on its question, so nothing

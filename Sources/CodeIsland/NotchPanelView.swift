@@ -618,6 +618,7 @@ private struct CompactRightWing: View {
                 NotchIconButton(icon: soundEnabled ? "speaker.wave.2" : "speaker.slash", tooltip: soundEnabled ? l10n["mute"] : l10n["enable_sound_tooltip"]) {
                     soundEnabled.toggle()
                 }
+                CoffeeButton()
                 NotchIconButton(icon: "gearshape", tooltip: l10n["settings"]) {
                     SettingsWindowController.shared.show()
                 }
@@ -804,6 +805,26 @@ private struct CompactToolStatus: View {
     }
 }
 
+private struct CoffeeButton: View {
+    @ObservedObject private var manager = KeepAwakeManager.shared
+    @ObservedObject private var l10n = L10n.shared
+    @State private var showError = false
+
+    var body: some View {
+        NotchIconButton(icon: manager.isEnabled ? "cup.and.saucer.fill" : "cup.and.saucer",
+                        tint: manager.isEnabled ? .yellow : .white,
+                        tooltip: l10n[manager.isEnabled ? "coffee_disable" : "coffee_enable"]) {
+            manager.setEnabled(!manager.isEnabled)
+            showError = manager.errorKey != nil
+        }
+        .accessibilityLabel(l10n["coffee_title"])
+        .accessibilityValue(l10n[manager.isEnabled ? "coffee_enabled" : "coffee_off"])
+        .alert(l10n["coffee_error"], isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        }
+    }
+}
+
 private struct NotchIconButton: View {
     let icon: String
     var tint: Color = .white
@@ -869,6 +890,7 @@ private struct IdleIndicatorBar: View {
                         NotchIconButton(icon: soundEnabled ? "speaker.wave.2" : "speaker.slash", tooltip: soundEnabled ? l10n["mute"] : l10n["enable_sound_tooltip"]) {
                             soundEnabled.toggle()
                         }
+                        CoffeeButton()
                         NotchIconButton(icon: "gearshape", tooltip: l10n["settings"]) {
                             SettingsWindowController.shared.show()
                         }

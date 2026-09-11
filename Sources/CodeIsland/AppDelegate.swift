@@ -164,6 +164,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        KeepAwakeManager.shared.stop()
+        SoundManager.shared.stopSpeech()
         AccountICloudSync.shared.stop()
         hookRecoveryTimer?.invalidate()
         teardownGlobalShortcut()

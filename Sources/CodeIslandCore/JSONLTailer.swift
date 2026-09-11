@@ -6,6 +6,10 @@ public enum ConversationTurnStatus: Equatable, Sendable {
     case idle
 }
 
+public enum ConversationTurnOutcome: Equatable, Sendable {
+    case completed, interrupted, failed
+}
+
 /// Trailing-question state derived from a Cursor `role`-keyed transcript.
 ///
 /// Cursor's AskQuestion tool has no hook channel — the question is asked and
@@ -29,6 +33,8 @@ public struct ConversationTailDelta: Equatable, Sendable {
     public let lastUserPrompt: String?
     public let lastAssistantMessage: String?
     public let turnStatus: ConversationTurnStatus?
+    public let turnOutcome: ConversationTurnOutcome?
+    public let turnID: String?
     public let hasActivity: Bool
     public let cursorQuestion: CursorQuestionSignal?
     /// Identifies the exact tailer attachment that produced this delta.
@@ -46,6 +52,8 @@ public struct ConversationTailDelta: Equatable, Sendable {
         lastUserPrompt: String?,
         lastAssistantMessage: String?,
         turnStatus: ConversationTurnStatus? = nil,
+        turnOutcome: ConversationTurnOutcome? = nil,
+        turnID: String? = nil,
         hasActivity: Bool = false,
         cursorQuestion: CursorQuestionSignal? = nil,
         attachmentToken: UUID? = nil,
@@ -55,6 +63,8 @@ public struct ConversationTailDelta: Equatable, Sendable {
         self.lastUserPrompt = lastUserPrompt
         self.lastAssistantMessage = lastAssistantMessage
         self.turnStatus = turnStatus
+        self.turnOutcome = turnOutcome
+        self.turnID = turnID
         self.hasActivity = hasActivity
         self.cursorQuestion = cursorQuestion
         self.attachmentToken = attachmentToken
@@ -317,6 +327,8 @@ public final class JSONLTailer: @unchecked Sendable {
                 lastUserPrompt: scan.delta.lastUserPrompt,
                 lastAssistantMessage: scan.delta.lastAssistantMessage,
                 turnStatus: scan.delta.turnStatus,
+                turnOutcome: scan.delta.turnOutcome,
+                turnID: scan.delta.turnID,
                 hasActivity: scan.delta.hasActivity,
                 cursorQuestion: scan.delta.cursorQuestion,
                 attachmentToken: watch.attachmentToken,
@@ -354,6 +366,8 @@ public final class JSONLTailer: @unchecked Sendable {
             public var lastUserPrompt: String?
             public var lastAssistantMessage: String?
             public var turnStatus: ConversationTurnStatus?
+            public var turnOutcome: ConversationTurnOutcome?
+            public var turnID: String?
             public var hasActivity = false
             public var cursorQuestion: CursorQuestionSignal?
             public var isEmpty: Bool {
@@ -442,10 +456,15 @@ public final class JSONLTailer: @unchecked Sendable {
             switch eventType {
             case "task_started":
                 delta.turnStatus = .processing
+                delta.turnOutcome = nil
+                delta.turnID = payload["turn_id"] as? String
             // "turn_failed" is not in today's codex EventMsg enum — kept as a
             // forward-compatible guess at the obvious name for a failed turn.
             case "task_complete", "turn_aborted", "turn_failed":
                 delta.turnStatus = .idle
+                delta.turnOutcome = eventType == "task_complete" ? .completed
+                    : eventType == "turn_aborted" ? .interrupted : .failed
+                delta.turnID = payload["turn_id"] as? String
             default:
                 break
             }

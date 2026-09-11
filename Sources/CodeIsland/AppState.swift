@@ -159,6 +159,8 @@ final class AppState {
     /// reattach when the path actually changes. See AppState+TranscriptTailer.
     @ObservationIgnored
     var attachedTranscriptPaths: [String: String] = [:]
+    @ObservationIgnored var completionSoundSettled: Set<String> = []
+    @ObservationIgnored var completionSoundTurns: [String: Set<String>] = [:]
     /// Token for the exact JSONLTailer attachment currently owned by a session.
     /// A queued delta from an older attachment must not mutate a same-id session
     /// that was closed and subsequently re-created.
@@ -797,6 +799,8 @@ final class AppState {
     /// Every removal path (cleanup timer, process exit, reducer effect) goes through here
     /// so leaked continuations / connections are impossible.
     func removeSession(_ sessionId: String) {
+        completionSoundSettled.remove(sessionId)
+        completionSoundTurns.removeValue(forKey: sessionId)
         // Resume ALL pending continuations for this session
         drainPermissions(forSession: sessionId, reason: "removeSession")
         drainQuestions(forSession: sessionId, reason: "removeSession")
@@ -1454,7 +1458,7 @@ final class AppState {
         }
 
         for effect in effects {
-            executeEffect(effect, sessionId: sessionId)
+            executeEffect(effect, sessionId: sessionId, event: event)
         }
 
         if let provider = sessions[sessionId]?.source,
@@ -1492,10 +1496,27 @@ final class AppState {
         refreshDerivedState()
     }
 
-    private func executeEffect(_ effect: SideEffect, sessionId: String) {
+    private func executeEffect(_ effect: SideEffect, sessionId: String, event: HookEvent) {
         switch effect {
         case .playSound(let eventName):
-            SoundManager.shared.handleEvent(eventName)
+            // Attached Codex transcripts are authoritative for completion and
+            // cancellation. Their live deltas must not also chime via hooks.
+            let codexTranscript = sessions[sessionId]?.source == "codex"
+                && attachedTranscriptPaths[sessionId] != nil
+            if eventName == "UserPromptSubmit" || eventName == "SessionStart" {
+                if !codexTranscript { completionSoundSettled.remove(sessionId) }
+            }
+            if eventName == "Stop" || eventName == "TaskRoundComplete" {
+                guard !codexTranscript, let session = sessions[sessionId],
+                      session.status != .waitingApproval, session.status != .waitingQuestion,
+                      !session.subagents.values.contains(where: { $0.status != .idle }) else { return }
+                let failed = event.eventName == "StopFailure" || event.eventName == "stop_failure"
+                    || (event.rawJSON["stop_reason"] as? String) == "error"
+                notifySessionCompletion(sessionId: sessionId,
+                    outcome: failed ? .failed : session.interrupted ? .interrupted : .completed)
+            } else {
+                SoundManager.shared.handleEvent(eventName)
+            }
         case .tryMonitorSession(let sid):
             tryMonitorSession(sid)
         case .stopMonitor(let sid):

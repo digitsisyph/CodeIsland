@@ -62,6 +62,9 @@ enum SettingsKey {
     static let soundApprovalNeeded = "soundApprovalNeeded"
     static let soundPromptSubmit = "soundPromptSubmit"
     static let soundBoot = "soundBoot"
+    static let completionSoundMode = "completionSoundMode"
+    static let speechVoiceID = "speechVoiceID"
+    static let keepDisplayAwake = "keepDisplayAwake"
     // Quiet hours — minutes since midnight; start > end spans midnight
     static let quietHoursEnabled = "quietHoursEnabled"
     static let quietHoursStart = "quietHoursStart"
@@ -172,6 +175,9 @@ struct SettingsDefaults {
     static let soundApprovalNeeded = true
     static let soundPromptSubmit = false
     static let soundBoot = true
+    static let completionSoundMode = "chime"
+    static let speechVoiceID = ""
+    static let keepDisplayAwake = false
     static let quietHoursEnabled = false
     static let quietHoursStart = 22 * 60
     static let quietHoursEnd = 8 * 60
@@ -260,6 +266,9 @@ class SettingsManager {
             SettingsKey.soundApprovalNeeded: SettingsDefaults.soundApprovalNeeded,
             SettingsKey.soundPromptSubmit: SettingsDefaults.soundPromptSubmit,
             SettingsKey.soundBoot: SettingsDefaults.soundBoot,
+            SettingsKey.completionSoundMode: SettingsDefaults.completionSoundMode,
+            SettingsKey.speechVoiceID: SettingsDefaults.speechVoiceID,
+            SettingsKey.keepDisplayAwake: SettingsDefaults.keepDisplayAwake,
             SettingsKey.quietHoursEnabled: SettingsDefaults.quietHoursEnabled,
             SettingsKey.quietHoursStart: SettingsDefaults.quietHoursStart,
             SettingsKey.quietHoursEnd: SettingsDefaults.quietHoursEnd,

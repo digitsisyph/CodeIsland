@@ -40,7 +40,8 @@ It connects to **14 AI coding tools** via Unix socket IPC, displaying session st
 - **Pixel-art mascots** — Each AI tool has its own animated character
 - **One-click jump** — Click a session to jump to its terminal tab, IDE window, or exact Herdr agent pane
 - **Smart suppress** — Tab-level terminal and Herdr pane detection: only suppresses notifications when you're looking at the specific session, not just the terminal app
-- **Sound effects** — Optional 8-bit sound notifications for session events
+- **Sound notifications** — Completion chime or spoken service/session name, plus optional 8-bit sounds for other events
+- **Coffee mode** — Keep background tasks running without automatic sleep; optionally keep the display awake
 - **Auto hook install** — Automatically configures hooks for all detected CLI tools, with auto-repair and version tracking
 - **iPhone & Apple Watch Buddy** — Mirror session status to Dynamic Island, Lock Screen, StandBy, and Apple Watch
 - **Bilingual UI** — English and Chinese, auto-detects system language
@@ -152,7 +153,8 @@ CodeIsland provides a 7-tab settings panel:
 - **Behavior** — Auto-hide, smart suppress, session cleanup
 - **Appearance** — Panel height, font size, AI reply lines
 - **Mascots** — Preview all pixel-art characters and their animations
-- **Sound** — 8-bit sound effects for session events
+- **Sound** — Choose Chime or Speech for completion reminders, select an installed voice, and preview it. Volume, mute, and quiet hours apply to automatic reminders. Codex live transcript completions are supported; cancelled turns and historical completions are silent.
+- **General → Keep awake** — The coffee button beside the speaker prevents idle system sleep until turned off or CodeIsland exits. Display sleep is allowed by default; enable “Also keep the display awake” to keep it lit. Closing the lid or manually choosing Sleep still takes precedence.
 - **Hooks** — View CLI installation status, reinstall or uninstall hooks
 - **About** — Version info and links
 
