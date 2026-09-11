@@ -1,5 +1,16 @@
 import Foundation
 
+public enum AccountQuotaTimestamp {
+    public static func parse(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: value) { return date }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: value)
+    }
+}
+
 /// Public, credential-free output from the account core bundled with this app.
 public struct AccountQuotaSnapshot: Decodable, Sendable {
     public let schemaVersion: Int

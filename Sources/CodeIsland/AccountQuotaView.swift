@@ -131,7 +131,7 @@ struct AccountQuotaView: View {
     }
 
     private func resetText(_ value: String?) -> String {
-        guard let value, let date = ISO8601DateFormatter().date(from: value) else { return "—" }
+        guard let date = AccountQuotaTimestamp.parse(value) else { return "—" }
         return date.formatted(.dateTime.month(.twoDigits).day(.twoDigits).hour().minute())
     }
 }
