@@ -18,6 +18,9 @@ enum NotchHeightMode: String, CaseIterable {
 }
 
 enum SettingsKey {
+    static let quotaHideCodexSpark = "quotaHideCodexSpark"
+    static let quotaShowCountdown = "quotaShowCountdown"
+    static let quotaProviderOrder = "quotaProviderOrder"
     // Language
     static let appLanguage = "appLanguage"                 // "system", "en", "zh", "zh-Hant", "de", "ja", "ko", "tr"
 
@@ -224,6 +227,9 @@ class SettingsManager {
 
     private init() {
         defaults.register(defaults: [
+            SettingsKey.quotaHideCodexSpark: true,
+            SettingsKey.quotaShowCountdown: true,
+            SettingsKey.quotaProviderOrder: "claude",
             SettingsKey.displayChoice: SettingsDefaults.displayChoice,
             SettingsKey.allowHorizontalDrag: SettingsDefaults.allowHorizontalDrag,
             SettingsKey.avoidMenuBarIcons: SettingsDefaults.avoidMenuBarIcons,

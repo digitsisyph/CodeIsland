@@ -46,6 +46,35 @@ counts and earliest expiry, active account, and last measurement time.
 The island also shows the time remaining beside each reset timestamp, updating
 every minute. Once that time passes it shows that a fresh measurement is needed.
 
+## iCloud sync between Macs
+
+Open **Settings → iCloud Sync → Sync across my Macs** on each Mac, using the
+same Apple Account with iCloud Drive enabled. Sync is off by default. The app
+publishes local quota measurements every minute while enabled, even with the
+island collapsed. Another Mac can display these measurements without importing
+the source Mac's account credentials. Remote rows show their source Mac and
+measurement time; an offline Mac's last measurement remains visible.
+
+The current implementation uses **iCloud Drive**, so source builds do not need
+a CloudKit container or a special provisioning profile. Each installation
+atomically writes its own UUID-named document in `iCloud Drive/CodeIsland/Sync/v1/`.
+The settings page distinguishes saving locally from an upload confirmed by
+macOS. Delivery to other Macs is asynchronous and controlled by iCloud.
+
+Quota accounts are matched by provider, email, and workspace (organization for
+Claude), not by the local account slot number. The newest usable measurement
+wins, while the active login remains specific to each Mac. Only local results
+are published, preventing remote data from echoing between devices. The CLI
+continues to query the accounts held locally; the island additionally merges
+the received device snapshots.
+
+The following display settings merge independently using their modification
+times: hide Codex Spark, show reset countdowns, and Claude/Codex display order.
+The sync enable switches and device identity remain local. Credentials, cookies,
+tokens, account switching, hooks, permissions, paths, and session transcripts
+are never published. Turning sync off stops publishing and displaying remote
+measurements; it does not delete previously uploaded files.
+
 Missing values stay unknown. Old values are marked stale after a failed refresh;
 identity/credential errors suppress old quota bars. Reading quotas never redeems
 reset credits. Account switching remains an explicit CLI operation. Running Codex

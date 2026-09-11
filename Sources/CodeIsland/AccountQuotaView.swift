@@ -51,15 +51,30 @@ final class AccountQuotaMonitor: ObservableObject {
 
 struct AccountQuotaView: View {
     @ObservedObject private var monitor = AccountQuotaMonitor.shared
+    @ObservedObject private var sync = AccountICloudSync.shared
     @ObservedObject private var l10n = L10n.shared
+    @AppStorage(SettingsKey.quotaHideCodexSpark) private var hideSpark = true
+    @AppStorage(SettingsKey.quotaShowCountdown) private var showCountdown = true
+    @AppStorage(SettingsKey.quotaProviderOrder) private var providerOrder = "claude"
+
+    private var snapshot: AccountQuotaSnapshot? { sync.mergedSnapshot(local: monitor.snapshot) }
+
+    private func orderedAccounts(_ accounts: [AccountQuota]) -> [AccountQuota] {
+        accounts.filter { $0.provider == providerOrder } + accounts.filter { $0.provider != providerOrder }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                if let snapshot = monitor.snapshot {
+                if let snapshot {
                     Text("Claude \(snapshot.accounts.filter { $0.provider == "claude" }.count) · Codex \(snapshot.accounts.filter { $0.provider == "codex" }.count)")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
+                }
+                if sync.enabled {
+                    Image(systemName: sync.errorKey == nil ? "icloud" : "icloud.slash")
+                        .font(.caption).foregroundStyle(sync.errorKey == nil ? Color.secondary : Color.orange)
+                        .help(l10n[sync.errorKey ?? "icloud"])
                 }
                 Spacer()
                 if monitor.isRefreshing { ProgressView().controlSize(.small) }
@@ -73,7 +88,7 @@ struct AccountQuotaView: View {
             if let error = monitor.error {
                 Text(error).font(.caption).foregroundStyle(.orange)
             }
-            if let snapshot = monitor.snapshot {
+            if let snapshot {
                 if snapshot.accounts.isEmpty {
                     Text("Add accounts in Terminal:\ncodeisland claude add\ncodeisland codex add")
                         .font(.system(.body, design: .monospaced))
@@ -82,7 +97,7 @@ struct AccountQuotaView: View {
                 TimelineView(.periodic(from: .now, by: 60)) { context in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 16) {
-                            ForEach(snapshot.accounts) { account in
+                            ForEach(orderedAccounts(snapshot.accounts)) { account in
                                 accountRow(account, now: context.date)
                                 Divider()
                             }
@@ -120,9 +135,13 @@ struct AccountQuotaView: View {
             }
             Text(account.organization.isEmpty ? "Personal" : account.organization)
                 .font(.caption).foregroundStyle(.secondary)
+            if let source = account.sourceDevice {
+                Text("\(l10n["icloud_via"]) \(source)")
+                    .font(.caption2).foregroundStyle(.cyan)
+            }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), alignment: .leading)], alignment: .leading, spacing: 12) {
                 ForEach(account.windows.filter {
-                    account.provider != "codex" || !$0.label.localizedCaseInsensitiveContains("spark")
+                    !hideSpark || account.provider != "codex" || !$0.label.localizedCaseInsensitiveContains("spark")
                 }) { window in
                     quotaRing(window, now: now)
                 }
@@ -142,7 +161,7 @@ struct AccountQuotaView: View {
     private func quotaRing(_ window: AccountQuotaWindow, now: Date) -> some View {
         let remaining = max(0, min(100, window.remainingPercent))
         let color: Color = remaining < 20 ? .orange : .green
-        let countdown = Self.countdownText(window.resetsAt, now: now, language: l10n.effectiveLanguage)
+        let countdown = showCountdown ? Self.countdownText(window.resetsAt, now: now, language: l10n.effectiveLanguage) : nil
         return HStack(spacing: 8) {
             ZStack {
                 Circle().stroke(.white.opacity(0.12), lineWidth: 4)
