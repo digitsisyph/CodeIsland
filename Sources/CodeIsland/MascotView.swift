@@ -14,7 +14,7 @@ extension EnvironmentValues {
     }
 }
 
-/// Routes a CLI source identifier to the correct pixel mascot view.
+/// Routes a CLI source identifier to its brand icon or pixel mascot.
 struct MascotView: View {
     let source: String
     let status: MascotAgentStatus
@@ -27,7 +27,9 @@ struct MascotView: View {
         Group {
             switch resolved {
             case "codex":
-                DexView(status: status, size: size)
+                ProviderIcon(provider: "codex", size: size * 0.65)
+                    .frame(width: size, height: size)
+                    .opacity(status == .idle ? 0.7 : 1)
             case "grok":
                 GrokView(status: status, size: size)
             case "gemini", "google-antigravity":

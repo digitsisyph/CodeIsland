@@ -71,7 +71,7 @@ struct AccountQuotaView: View {
                         ForEach(["claude", "codex"], id: \.self) { provider in
                             let count = snapshot.accounts.filter { $0.provider == provider }.count
                             HStack(spacing: 4) {
-                                QuotaProviderIcon(provider: provider, size: 14)
+                                ProviderIcon(provider: provider, size: 14)
                                 Text("\(count)")
                                     .font(.system(size: 11, weight: .medium))
                                     .foregroundStyle(.secondary)
@@ -120,8 +120,6 @@ struct AccountQuotaView: View {
             } else if !monitor.isRefreshing {
                 Text("Refresh to load account quotas.").foregroundStyle(.secondary)
             }
-            Text(l10n["quota_footer"])
-                .font(.caption).foregroundStyle(.secondary)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
@@ -138,7 +136,7 @@ struct AccountQuotaView: View {
     private func accountRow(_ account: AccountQuota, now: Date) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                QuotaProviderIcon(provider: account.provider, size: 18)
+                ProviderIcon(provider: account.provider, size: 18)
                 Text(account.email).fontWeight(.semibold).textSelection(.enabled)
                 if account.active { Text("Active").font(.caption).foregroundStyle(.green) }
                 Spacer()
@@ -255,7 +253,7 @@ struct AccountQuotaView: View {
     }
 }
 
-private struct QuotaProviderIcon: View {
+struct ProviderIcon: View {
     let provider: String
     let size: CGFloat
 

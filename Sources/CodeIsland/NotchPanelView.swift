@@ -2928,6 +2928,9 @@ private struct TerminalBadge: View {
         }
         let bid = session.termBundleId ?? Self.sourceBundleIds[session.mascotSource]
         guard let bid else { return nil }
+        if bid == "com.openai.codex" {
+            return cliIcon(source: "codex", size: 13)
+        }
         if let cached = Self.termIconCache[bid] { return cached }
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bid) else { return nil }
         let icon = NSWorkspace.shared.icon(forFile: url.path)
@@ -3129,8 +3132,9 @@ private var cliIconCache: [String: NSImage] = [:]
 func cliIcon(source: String, size: CGFloat = 16) -> NSImage? {
     let key = "\(source)_\(Int(size))"
     if let cached = cliIconCache[key] { return cached }
+    let directory = source == "codex" ? "Resources/quota-icons" : "Resources/cli-icons"
     guard let filename = cliIconFiles[source],
-          let url = Bundle.appModule.url(forResource: filename, withExtension: "png", subdirectory: "Resources/cli-icons"),
+          let url = Bundle.appModule.url(forResource: filename, withExtension: "png", subdirectory: directory),
           let image = NSImage(contentsOf: url)
     else {
         // No asset (new integrations, custom CLIs): draw a monogram tile so
@@ -3140,6 +3144,7 @@ func cliIcon(source: String, size: CGFloat = 16) -> NSImage? {
         return fallback
     }
     image.size = NSSize(width: size, height: size)
+    image.isTemplate = source == "codex"
     cliIconCache[key] = image
     return image
 }
